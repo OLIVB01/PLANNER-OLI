@@ -357,7 +357,7 @@
     <!-- CREAR -->
     <section class="tab-panel" id="tab-crear">
       <div class="card">
-        <h3>Nueva actividad</h3>
+        <h3 id="actFormTitle">Nueva actividad</h3>
         <form id="actForm">
           <div class="field">
             <label>Título</label>
@@ -390,7 +390,8 @@
           <div class="check-field">
             <input type="checkbox" id="actNotify" checked> <label style="margin:0;">Avisar en la app a la hora de inicio</label>
           </div>
-          <button type="submit" class="btn-primary">Guardar actividad</button>
+          <button type="submit" class="btn-primary" id="actSubmitBtn">Guardar actividad</button>
+          <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none;">Cancelar edición</button>
         </form>
       </div>
     </section>
@@ -540,6 +541,7 @@ const PALETTE = [
 ];
 let selectedColor = PALETTE[0];
 let repeatDays = [];
+let editingId = null;
 
 function pad(n){return n.toString().padStart(2,'0');}
 function fmtDate(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
@@ -844,6 +846,7 @@ function renderDiario(){
       </div>
       <button class="del">×</button>
     `;
+    block.querySelector('.chk').onclick = (e)=> e.stopPropagation();
     block.querySelector('.chk').onchange = (e)=>{
       if(e.target.checked) a.completions[dateStr]=true; else delete a.completions[dateStr];
       saveActivities();
@@ -858,6 +861,7 @@ function renderDiario(){
       activities = activities.filter(x=>x.id!==a.id);
       saveActivities(); renderDiario();
     };
+    block.onclick = ()=> openEditForm(a.id);
     timeline.appendChild(block);
   });
 }
@@ -896,6 +900,8 @@ function renderSemana(){
         p.className='pill'+(a.completions[dateStr]?' completed':'');
         p.style.background = a.color || PALETTE[0];
         p.innerHTML = `<span class="prange">${a.start}</span><span class="ptitle">${escapeHtml(a.title)}</span>`;
+        p.style.cursor = 'pointer';
+        p.onclick = (e)=>{ e.stopPropagation(); openEditForm(a.id); };
         pillsWrap.appendChild(p);
       });
     }
@@ -970,24 +976,55 @@ function renderPresets(){
     wrap.appendChild(b);
   });
 }
+function openEditForm(id){
+  const a = activities.find(x=>x.id===id);
+  if(!a) return;
+  editingId = id;
+  document.getElementById('actTitle').value = a.title;
+  document.getElementById('actDate').value = a.date;
+  document.getElementById('actStart').value = a.start;
+  document.getElementById('actEnd').value = a.end;
+  document.getElementById('actNotify').checked = a.notify !== false;
+  selectedColor = a.color || PALETTE[0];
+  repeatDays = [...(a.repeatDays||[])];
+  renderSwatches();
+  renderChips();
+  document.getElementById('actFormTitle').textContent = 'Editar actividad';
+  document.getElementById('actSubmitBtn').textContent = 'Guardar cambios';
+  document.getElementById('cancelEditBtn').style.display = 'block';
+  document.querySelector('.tab-btn[data-tab="crear"]').click();
+}
+function exitEditMode(){
+  editingId = null;
+  document.getElementById('actFormTitle').textContent = 'Nueva actividad';
+  document.getElementById('actSubmitBtn').textContent = 'Guardar actividad';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  document.getElementById('actForm').reset();
+  document.getElementById('actDate').value = fmtDate(selectedDate);
+  selectedColor = PALETTE[0]; repeatDays = [];
+  renderSwatches(); renderChips();
+}
+document.getElementById('cancelEditBtn').onclick = exitEditMode;
+
 document.getElementById('actForm').onsubmit = async (e)=>{
   e.preventDefault();
-  activities.push({
-    id: Date.now().toString(),
+  const fields = {
     title: document.getElementById('actTitle').value,
     date: document.getElementById('actDate').value,
     start: document.getElementById('actStart').value,
     end: document.getElementById('actEnd').value,
     color: selectedColor,
     repeatDays: [...repeatDays],
-    notify: document.getElementById('actNotify').checked,
-    notified: false,
-    completions: {}
-  });
+    notify: document.getElementById('actNotify').checked
+  };
+  if(editingId){
+    const a = activities.find(x=>x.id===editingId);
+    if(a) Object.assign(a, fields);
+  } else {
+    activities.push({ id: Date.now().toString(), ...fields, notified:false, completions:{} });
+  }
   await saveActivities();
-  e.target.reset();
-  document.getElementById('actDate').value = fmtDate(selectedDate);
-  repeatDays = []; renderChips();
+  exitEditMode();
   renderDiario(); renderSemana();
 };
 
