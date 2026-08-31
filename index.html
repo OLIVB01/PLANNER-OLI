@@ -12,7 +12,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -36,7 +36,8 @@
     window.fb = {
       auth: getAuth(app), db: getFirestore(app),
       doc, getDoc, setDoc, onAuthStateChanged,
-      createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut
+      createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
+      GoogleAuthProvider, signInWithPopup
     };
   }catch(e){ window.fbFailed = true; }
   window.fbReady = true;
@@ -300,6 +301,8 @@
   <div class="auth-box">
     <div class="auth-title">Bitácora</div>
     <div class="auth-sub">Iniciá sesión para ver tu progreso en cualquier dispositivo.</div>
+    <button class="btn-primary" id="authGoogleBtn" style="background:var(--ink);margin-bottom:14px;">Continuar con Google</button>
+    <div style="font-size:11px;color:var(--ink-soft);margin-bottom:14px;">o con correo y contraseña</div>
     <input type="email" id="authEmail" placeholder="Correo" autocomplete="username">
     <input type="password" id="authPass" placeholder="Contraseña" autocomplete="current-password">
     <button class="btn-primary" id="authLoginBtn">Entrar</button>
@@ -1231,7 +1234,10 @@ function showAuthError(e){
     'auth/invalid-credential':'Correo o contraseña incorrectos.',
     'auth/wrong-password':'Correo o contraseña incorrectos.',
     'auth/user-not-found':'No existe una cuenta con ese correo — probá "Crear cuenta".',
-    'auth/network-request-failed':'Sin conexión a internet.'
+    'auth/network-request-failed':'Sin conexión a internet.',
+    'auth/popup-closed-by-user':'Cerraste la ventana de Google antes de terminar.',
+    'auth/popup-blocked':'El navegador bloqueó la ventana emergente — permitila e intentá de nuevo.',
+    'auth/unauthorized-domain':'Este dominio todavía no está autorizado en Firebase.'
   };
   document.getElementById('authError').textContent = map[e.code] || ('No se pudo procesar: '+(e.message||e.code||e));
 }
@@ -1251,6 +1257,13 @@ function setupApp(){
   renderWater();
 }
 
+document.getElementById('authGoogleBtn').onclick = async ()=>{
+  document.getElementById('authError').textContent='';
+  try{
+    const provider = new window.fb.GoogleAuthProvider();
+    await window.fb.signInWithPopup(window.fb.auth, provider);
+  }catch(e){ showAuthError(e); }
+};
 document.getElementById('authLoginBtn').onclick = async ()=>{
   document.getElementById('authError').textContent='';
   const email = document.getElementById('authEmail').value.trim();
